@@ -12,6 +12,8 @@ import net.minecraft.item.*;
 import net.minecraft.recipe.*;
 import net.minecraft.recipe.book.CraftingRecipeCategory;
 import net.minecraft.recipe.input.CraftingRecipeInput;
+import net.minecraft.registry.Registry;
+import net.minecraft.registry.RegistryKey;
 import net.minecraft.registry.RegistryWrapper;
 import net.minecraft.resource.ResourceManager;
 import net.minecraft.util.Identifier;
@@ -25,13 +27,12 @@ import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Map;
 
 @SuppressWarnings({"unchecked","rawtypes"})
-@Mixin(RecipeManager.class)
+@Mixin(ServerRecipeManager.class)
 public class RecipeManagerMixin {
-    @Inject(method = "apply(Ljava/util/Map;Lnet/minecraft/resource/ResourceManager;Lnet/minecraft/util/profiler/Profiler;)V", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/ImmutableMap;builder()Lcom/google/common/collect/ImmutableMap$Builder;", shift = At.Shift.BY, by=2))
-    private void addShadowRecipe(Map<Identifier, JsonElement> map, ResourceManager resourceManager, Profiler profiler, CallbackInfo ci, @Local(ordinal = 0) ImmutableMultimap.Builder<RecipeType<?>, RecipeEntry<?>> builder, @Local(ordinal = 0) ImmutableMap.Builder<Identifier, RecipeEntry<?>> builder2){
+    @Inject(method = "apply(Lnet/minecraft/recipe/PreparedRecipes;Lnet/minecraft/resource/ResourceManager;Lnet/minecraft/util/profiler/Profiler;)V", at = @At(value = "INVOKE", target = "Lcom/google/common/collect/ImmutableMap;builder()Lcom/google/common/collect/ImmutableMap$Builder;", shift = At.Shift.BY, by=2))
+    private void addShadowRecipe(PreparedRecipes preparedRecipes, ResourceManager resourceManager, Profiler profiler, CallbackInfo ci, @Local(ordinal = 0) ImmutableMultimap.Builder<RecipeType<?>, RecipeEntry<?>> builder, @Local(ordinal = 0) ImmutableMap.Builder<Identifier, RecipeEntry<?>> builder2){
         Identifier identifier = Identifier.of("carpet_shadow","shadow_recipe");
         Recipe<?> recipe = new BookCloningRecipe(CraftingRecipeCategory.MISC) {
             @Override
@@ -41,7 +42,7 @@ public class RecipeManagerMixin {
                 boolean enderchest = false;
                 List<ItemStack> stacks = new ArrayList<>();
                 int count = 0;
-                for(int i = 0; i < inventory.getSize(); ++i) {
+                for(int i = 0; i < inventory.size(); ++i) {
                     ItemStack itemStack2 = inventory.getStackInSlot(i);
                     if (!itemStack2.isEmpty()) {
                         if (itemStack2.getItem().equals(Items.ENDER_CHEST) && !enderchest)
@@ -68,7 +69,7 @@ public class RecipeManagerMixin {
 
                 ItemStack item = null;
                 ItemStack enderchest = null;
-                for(int i = 0; i < inventory.getSize(); ++i) {
+                for(int i = 0; i < inventory.size(); ++i) {
                     ItemStack itemStack2 = inventory.getStackInSlot(i);
                     if (!itemStack2.isEmpty()) {
                         if (itemStack2.getItem().equals(Items.ENDER_CHEST)) {
@@ -90,10 +91,10 @@ public class RecipeManagerMixin {
             }
 
             @Override
-            public DefaultedList<ItemStack> getRemainder(CraftingRecipeInput inventory) {
+            public DefaultedList<ItemStack> getRecipeRemainders(CraftingRecipeInput inventory) {
                 ItemStack item = null;
                 ItemStack enderchest = null;
-                for(int i = 0; i < inventory.getSize(); ++i) {
+                for(int i = 0; i < inventory.size(); ++i) {
                     ItemStack itemStack2 = inventory.getStackInSlot(i);
                     if (!itemStack2.isEmpty()) {
                         if (itemStack2.getItem().equals(Items.ENDER_CHEST)) {
@@ -108,17 +109,16 @@ public class RecipeManagerMixin {
                 if (item != null && enderchest != null)
                     item.setCount(item.getCount() + 1);
 
-                return super.getRemainder(inventory);
+                return super.getRecipeRemainders(inventory);
             }
 
-            @Override
             public boolean fits(int width, int height) {
                 if (CarpetShadowSettings.shadowItemMode== CarpetShadowSettings.Mode.UNLINK || !CarpetShadowSettings.shadowCraftingGeneration)
                     return false;
                 return width * height >= 2;
             }
         };
-        RecipeEntry<?> recipeEntry = new RecipeEntry(identifier, recipe);
+        RecipeEntry<?> recipeEntry = new RecipeEntry(RegistryKey.ofRegistry(identifier), recipe);
         builder.put(recipe.getType(), recipeEntry);
         builder2.put(identifier, recipeEntry);
     }
